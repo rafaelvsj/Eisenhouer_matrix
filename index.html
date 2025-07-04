@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eisenhower Matrix - Frontend Auditado Final</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .audit-log {
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.2;
+            max-height: 150px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .matrix-quadrant {
+            min-height: 200px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .matrix-quadrant:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .task-item {
+            background: white;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #3b82f6;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .task-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .saving-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .saving-indicator.show {
+            opacity: 1;
+        }
+        
+        .performance-monitor {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .quadrant-1 { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); }
+        .quadrant-2 { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); }
+        .quadrant-3 { background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); }
+        .quadrant-4 { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); }
+        
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .chat-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            max-width: 80%;
+        }
+        
+        .chat-message.user {
+            background: #3b82f6;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .chat-message.ai {
+            background: #e2e8f0;
+            color: #1a202c;
+        }
+        
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            margin-bottom: 16px;
+        }
+        
+        .success-message {
+            background: #f0fdf4;
+            color: #16a34a;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #bbf7d0;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Audit Log -->
+    <div class="audit-log" id="auditLog">
+        <div>🔍 AUDITORIA EM TEMPO REAL - Sistema Eisenhower Matrix</div>
+        <div>⏱️ Iniciando monitoramento de performance...</div>
+    </div>
+
+    <!-- Performance Monitor -->
+    <div class="performance-monitor" id="performanceMonitor">
+        <div>CPU: <span id="cpuUsage">0%</span></div>
+        <div>Memory: <span id="memoryUsage">0MB</span></div>
+        <div>Requests: <span id="requestCount">0</span></div>
+        <div>Errors: <span id="errorCount">0</span></div>
+    </div>
+
+    <!-- Saving Indicator -->
+    <div class="saving-indicator" id="savingIndicator">
+        <i class="fas fa-save"></i> Salvando...
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Login/Register Section -->
+        <div id="authSection" class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-center mb-6">
+                <i class="fas fa-lock"></i> Acesso Seguro
+            </h2>
+            
+            <div class="mb-4">
+                <button id="loginTab" class="w-1/2 py-2 px-4 bg-blue-500 text-white rounded-l-lg">
+                    Login
+                </button>
+                <button id="registerTab" class="w-1/2 py-2 px-4 bg-gray-300 text-gray-700 rounded-r-lg">
+                    Registro
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="loginEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+                    <input type="password" id="loginPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="loginBtn" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Entrar
+                </button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" style="display: none;">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
+                    <input type="text" id="registerName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="registerEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+                    <input type="password" id="registerPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="registerBtn" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fas fa-user-plus mr-2"></i> Registrar
+                </button>
+            </div>
+        </div>
+
+        <!-- Main App Section -->
+        <div id="appSection" style="display: none;">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-th-large mr-2"></i> Matriz de Eisenhower
+                    </h1>
+                    <div class="flex space-x-2">
+                        <button id="analyzeBtn" class="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 transition-colors">
+                            <i class="fas fa-brain mr-2"></i> Analisar com IA
+                        </button>
+                        <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i> Sair
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Eisenhower Matrix -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Quadrant 1: Urgent + Important -->
+                    <div class="matrix-quadrant quadrant-1">
+                        <h3 class="text-lg font-semibold mb-3 text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i> Urgente + Importante
+                        </h3>
+                        <div class="mb-3">
+                            <input type="text" id="task1Input" placeholder="Adicionar tarefa..." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                        <div id="quadrant1" class="tasks-container"></div>
+                    </div>
+
+                    <!-- Quadrant 2: Important + Not Urgent -->
+                    <div class="matrix-quadrant quadrant-2">
+                        <h3 class="text-lg font-semibold mb-3 text-blue-700">
+                            <i class="fas fa-star mr-2"></i> Importante + Não Urgente
+                        </h3>
+                        <div class="mb-3">
+                            <input type="text" id="task2Input" placeholder="Adicionar tarefa..." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                        <div id="quadrant2" class="tasks-container"></div>
+                    </div>
+
+                    <!-- Quadrant 3: Urgent + Not Important -->
+                    <div class="matrix-quadrant quadrant-3">
+                        <h3 class="text-lg font-semibold mb-3 text-yellow-700">
+                            <i class="fas fa-clock mr-2"></i> Urgente + Não Importante
+                        </h3>
+                        <div class="mb-3">
+                            <input type="text" id="task3Input" placeholder="Adicionar tarefa..." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                        <div id="quadrant3" class="tasks-container"></div>
+                    </div>
+
+                    <!-- Quadrant 4: Not Urgent + Not Important -->
+                    <div class="matrix-quadrant quadrant-4">
+                        <h3 class="text-lg font-semibold mb-3 text-green-700">
+                            <i class="fas fa-leaf mr-2"></i> Não Urgente + Não Importante
+                        </h3>
+                        <div class="mb-3">
+                            <input type="text" id="task4Input" placeholder="Adicionar tarefa..." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                        <div id="quadrant4" class="tasks-container"></div>
+                    </div>
+                </div>
+
+                <!-- AI Chat Section -->
+                <div class="bg-gray-50 rounded-lg p-6">
+                    <h3 class="text-xl font-semibold mb-4">
+                        <i class="fas fa-robot mr-2"></i> Chat com IA
+                    </h3>
+                    <div class="chat-container" id="chatContainer">
+                        <div class="chat-message ai">
+                            <i class="fas fa-robot mr-2"></i>
+                            Olá! Estou aqui para ajudá-lo a analisar e priorizar suas tarefas. Adicione algumas tarefas na matriz e depois clique em "Analisar com IA" para receber sugestões personalizadas.
+                        </div>
+                    </div>
+                    <div class="mt-4 flex">
+                        <input type="text" id="chatInput" placeholder="Digite sua mensagem..." class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button id="sendChatBtn" class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Priority List Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-semibold mb-4">
+                        <i class="fas fa-list-ol mr-2"></i> Lista de Prioridades
+                    </h3>
+                    <div id="priorityList" class="space-y-3">
+                        <div class="text-gray-500 text-center py-4">
+                            Use o chat com IA para gerar uma lista de prioridades personalizada
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // SISTEMA DE AUDITORIA E MONITORAMENTO
+        // ========================================
+        
+        class AuditSystem {
+            constructor() {
+                this.logs = [];
+                this.startTime = performance.now();
+                this.requestCount = 0;
+                this.errorCount = 0;
+                this.memoryBaseline = 0;
+                
+                this.initializeMonitoring();
+                this.logEvent('Sistema de auditoria iniciado');
+            }
+            
+            logEvent(message, type = 'INFO') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `${timestamp} ${type} ${message}`;
+                this.logs.push(logEntry);
+                
+                const auditLog = document.getElementById('auditLog');
+                const logDiv = document.createElement('div');
+                logDiv.textContent = logEntry;
+                auditLog.appendChild(logDiv);
+                auditLog.scrollTop = auditLog.scrollHeight;
+                
+                // Manter apenas os últimos 50 logs para evitar memory leak
+                if (this.logs.length > 50) {
+                    this.logs.shift();
+                    auditLog.removeChild(auditLog.firstChild);
+                }
+            }
+            
+            initializeMonitoring() {
+                // Monitoramento de performance com cleanup automático
+                this.performanceInterval = setInterval(() => {
+                    this.updatePerformanceMetrics();
+                }, 5000); // Atualiza a cada 5 segundos
+                
+                // Monitoramento de memória
+                if (performance.memory) {
+                    this.memoryBaseline = performance.memory.usedJSHeapSize;
+                }
+                
+                // Cleanup automático no unload
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            }
+            
+            updatePerformanceMetrics() {
+                try {
+                    const now = performance.now();
+                    const uptime = Math.floor((now - this.startTime) / 1000);
+                    
+                    // Simular uso de CPU (em produção, usar APIs reais)
+                    const cpuUsage = Math.min(Math.round(Math.random() * 30 + 10), 100);
+                    
+                    // Uso de memória
+                    let memoryUsage = 0;
+                    if (performance.memory) {
+                        memoryUsage = Math.round((performance.memory.usedJSHeapSize - this.memoryBaseline) / 1024 / 1024);
+                    }
+                    
+                    document.getElementById('cpuUsage').textContent = `${cpuUsage}%`;
+                    document.getElementById('memoryUsage').textContent = `${memoryUsage}MB`;
+                    document.getElementById('requestCount').textContent = this.requestCount;
+                    document.getElementById('errorCount').textContent = this.errorCount;
+                    
+                    // Log de alta usage
+                    if (cpuUsage > 80) {
+                        this.logEvent(`Alto uso de CPU: ${cpuUsage}%`, 'WARNING');
+                    }
+                    
+                    if (memoryUsage > 100) {
+                        this.logEvent(`Alto uso de memória: ${memoryUsage}MB`, 'WARNING');
+                    }
+                    
+                } catch (error) {
+                    this.logEvent(`Erro no monitoramento: ${error.message}`, 'ERROR');
+                }
+            }
+            
+            trackRequest() {
+                this.requestCount++;
+                this.logEvent(`Request #${this.requestCount} iniciado`);
+            }
+            
+            trackError(error) {
+                this.errorCount++;
+                this.logEvent(`Erro capturado: ${error.message}`, 'ERROR');
+            }
+            
+            cleanup() {
+                if (this.performanceInterval) {
+                    clearInterval(this.performanceInterval);
+                    this.performanceInterval = null;
+                }
+                this.logEvent('Sistema de auditoria finalizado');
+            }
+        }
+        
+        // ========================================
+        // SISTEMA DE DEBOUNCE E THROTTLE
+        // ========================================
+        
+        class PerformanceController {
+            constructor() {
+                this.debounceTimers = new Map();
+                this.throttleTimers = new Map();
+                this.lastExecution = new Map();
+                this.requestCache = new Map();
+                this.abortControllers = new Map();
+                
+                this.initializeCleanup();
+            }
+            
+            // Debounce function - previne execução múltipla
+            debounce(func, wait, key) {
+                return (...args) => {
+                    const execute = () => {
+                        this.debounceTimers.delete(key);
+                        func.apply(this, args);
+                    };
+                    
+                    if (this.debounceTimers.has(key)) {
+                        clearTimeout(this.debounceTimers.get(key));
+                    }
+                    
+                    this.debounceTimers.set(key, setTimeout(execute, wait));
+                };
+            }
+            
+            // Throttle function - limita frequência de execução
+            throttle(func, wait, key) {
+                return (...args) => {
+                    const now = Date.now();
+                    const lastExec = this.lastExecution.get(key) || 0;
+                    
+                    if (now - lastExec >= wait) {
+                        this.lastExecution.set(key, now);
+                        func.apply(this, args);
+                    }
+                };
+            }
+            
+            // Request seguro com timeout e abort
+            async safeRequest(url, options = {}, cacheKey = null) {
+                try {
+                    // Verificar cache primeiro
+                    if (cacheKey && this.requestCache.has(cacheKey)) {
+                        const cached = this.requestCache.get(cacheKey);
+                        if (Date.now() - cached.timestamp < 300000) { // 5 minutos
+                            auditSystem.logEvent(`Cache hit para: ${cacheKey}`);
+                            return cached.data;
+                        }
+                    }
+                    
+                    // Cancelar request anterior se existir
+                    if (this.abortControllers.has(url)) {
+                        this.abortControllers.get(url).abort();
+                    }
+                    
+                    const controller = new AbortController();
+                    this.abortControllers.set(url, controller);
+                    
+                    const timeoutId = setTimeout(() => {
+                        controller.abort();
+                    }, 30000); // 30 segundos timeout
+                    
+                    const response = await fetch(url, {
+                        ...options,
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    this.abortControllers.delete(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Cache da resposta
+                    if (cacheKey) {
+                        this.requestCache.set(cacheKey, {
+                            data: data,
+                            timestamp: Date.now()
+                        });
+                    }
+                    
+                    auditSystem.trackRequest();
+                    return data;
+                    
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        auditSystem.logEvent(`Request cancelado: ${url}`, 'WARNING');
+                    } else {
+                        auditSystem.trackError(error);
+                    }
+                    throw error;
+                }
+            }
+            
+            // Prevenção de double-click
+            preventDoubleClick(element, duration = 2000) {
+                element.disabled = true;
+                element.classList.add('btn-disabled');
+                
+                setTimeout(() => {
+                    element.disabled = false;
+                    element.classList.remove('btn-disabled');
+                }, duration);
+            }
+            
+            // Cleanup de timers e controllers
+            initializeCleanup() {
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            }
+            
+            cleanup() {
+                // Limpar debounce timers
+                this.debounceTimers.forEach((timer) => clearTimeout(timer));
+                this.debounceTimers.clear();
+                
+                // Limpar throttle timers
+                this.throttleTimers.forEach((timer) => clearTimeout(timer));
+                this.throttleTimers.clear();
+                
+                // Abortar requests pendentes
+                this.abortControllers.forEach((controller) => controller.abort());
+                this.abortControllers.clear();
+                
+                // Limpar cache
+                this.requestCache.clear();
+                
+                auditSystem.logEvent('Performance controller limpo');
+            }
+        }
+        
+        // ========================================
+        // SISTEMA DE GERENCIAMENTO DE TAREFAS
+        // ========================================
+        
+        class TaskManager {
+            constructor() {
+                this.tasks = {
+                    1: [], // Urgente + Importante
+                    2: [], // Importante + Não Urgente
+                    3: [], // Urgente + Não Importante
+                    4: []  // Não Urgente + Não Importante
+                };
+                this.taskCounter = 0;
+                this.lastSave = 0;
+                this.hasUnsavedChanges = false;
+                
+                this.initializeEventListeners();
+                this.loadTasks();
+                this.startAutoSave();
+            }
+            
+            initializeEventListeners() {
+                // Event listeners com debounce para inputs
+                for (let i = 1; i <= 4; i++) {
+                    const input = document.getElementById(`task${i}Input`);
+                    if (input) {
+                        input.addEventListener('keypress', performanceController.debounce((e) => {
+                            if (e.key === 'Enter' && e.target.value.trim()) {
+                                this.addTask(i, e.target.value.trim());
+                                e.target.value = '';
+                            }
+                        }, 1000, `task-input-${i}`));
+                    }
+                }
+                
+                // Cleanup event listeners
+                this.cleanupListeners = [];
+                
+                // Registrar listeners para cleanup
+                window.addEventListener('beforeunload', () => {
+                    this.cleanup();
+                });
+            }
+            
+            addTask(quadrant, text) {
+                try {
+                    if (!text || text.length > 200) {
+                        throw new Error('Tarefa deve ter entre 1 e 200 caracteres');
+                    }
+                    
+                    this.taskCounter++;
+                    const task = {
+                        id: `task-${this.taskCounter}`,
+                        number: this.taskCounter,
+                        text: this.sanitizeText(text),
+                        quadrant: quadrant,
+                        created: new Date().toISOString(),
+                        completed: false
+                    };
+                    
+                    this.tasks[quadrant].push(task);
+                    this.renderTasks();
+                    this.markUnsaved();
+                    
+                    auditSystem.logEvent(`Tarefa adicionada: Quadrante ${quadrant}, #${this.taskCounter}`);
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.showError('Erro ao adicionar tarefa: ' + error.message);
+                }
+            }
+            
+            removeTask(quadrant, taskId) {
+                try {
+                    const index = this.tasks[quadrant].findIndex(task => task.id === taskId);
+                    if (index > -1) {
+                        this.tasks[quadrant].splice(index, 1);
+                        this.renderTasks();
+                        this.markUnsaved();
+                        
+                        auditSystem.logEvent(`Tarefa removida: ${taskId}`);
+                    }
+                } catch (error) {
+                    auditSystem.trackError(error);
+                }
+            }
+            
+            renderTasks() {
+                try {
+                    for (let quadrant = 1; quadrant <= 4; quadrant++) {
+                        const container = document.getElementById(`quadrant${quadrant}`);
+                        if (!container) continue;
+                        
+                        // Limpar container para evitar memory leaks
+                        container.innerHTML = '';
+                        
+                        this.tasks[quadrant].forEach(task => {
+                            const taskElement = document.createElement('div');
+                            taskElement.className = 'task-item';
+                            taskElement.innerHTML = `
+                                <div class="flex justify-between items-center">
+                                    <span class="font-medium text-sm">#${task.number}</span>
+                                    <button onclick="taskManager.removeTask(${quadrant}, '${task.id}')" 
+                                            class="text-red-500 hover:text-red-700 text-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="text-gray-700 text-sm mt-1">${task.text}</div>
+                            `;
+                            container.appendChild(taskElement);
+                        });
+                    }
+                } catch (error) {
+                    auditSystem.trackError(error);
+                }
+            }
+            
+            sanitizeText(text) {
+                // Sanitização básica para prevenir XSS
+                return text.replace(/[<>]/g, '').trim();
+            }
+            
+            markUnsaved() {
+                this.hasUnsavedChanges = true;
+                this.lastSave = Date.now();
+            }
+            
+            startAutoSave() {
+                // Auto-save controlado com debounce
+                this.autoSaveInterval = setInterval(() => {
+                    if (this.hasUnsavedChanges && Date.now() - this.lastSave > 3000) {
+                        this.saveTasksDebounced();
+                    }
+                }, 5000); // Verifica a cada 5 segundos
+            }
+            
+            saveTasksDebounced() {
+                if (this.saveTimeout) {
+                    clearTimeout(this.saveTimeout);
+                }
+                
+                this.saveTimeout = setTimeout(() => {
+                    this.saveTasks();
+                }, 1000); // Debounce de 1 segundo
+            }
+            
+            saveTasks() {
+                try {
+                    localStorage.setItem('eisenhowerTasks', JSON.stringify(this.tasks));
+                    localStorage.setItem('eisenhowerTaskCounter', this.taskCounter);
+                    this.hasUnsavedChanges = false;
+                    
+                    this.showSavingIndicator();
+                    auditSystem.logEvent('Tarefas salvas no localStorage');
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.showError('Erro ao salvar tarefas');
+                }
+            }
+            
+            loadTasks() {
+                try {
+                    const savedTasks = localStorage.getItem('eisenhowerTasks');
+                    const savedCounter = localStorage.getItem('eisenhowerTaskCounter');
+                    
+                    if (savedTasks) {
+                        this.tasks = JSON.parse(savedTasks);
+                    }
+                    
+                    if (savedCounter) {
+                        this.taskCounter = parseInt(savedCounter);
+                    }
+                    
+                    this.renderTasks();
+                    auditSystem.logEvent('Tarefas carregadas do localStorage');
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.showError('Erro ao carregar tarefas');
+                }
+            }
+            
+            showSavingIndicator() {
+                const indicator = document.getElementById('savingIndicator');
+                indicator.classList.add('show');
+                
+                setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 2000);
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                
+                document.body.insertBefore(errorDiv, document.body.firstChild);
+                
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 5000);
+            }
+            
+            cleanup() {
+                if (this.autoSaveInterval) {
+                    clearInterval(this.autoSaveInterval);
+                    this.autoSaveInterval = null;
+                }
+                
+                if (this.saveTimeout) {
+                    clearTimeout(this.saveTimeout);
+                    this.saveTimeout = null;
+                }
+                
+                // Salvar antes de sair
+                if (this.hasUnsavedChanges) {
+                    this.saveTasks();
+                }
+                
+                auditSystem.logEvent('TaskManager limpo');
+            }
+        }
+        
+        // ========================================
+        // SISTEMA DE CHAT COM IA
+        // ========================================
+        
+        class ChatManager {
+            constructor() {
+                this.chatHistory = [];
+                this.isProcessing = false;
+                this.initializeEventListeners();
+            }
+            
+            initializeEventListeners() {
+                const chatInput = document.getElementById('chatInput');
+                const sendBtn = document.getElementById('sendChatBtn');
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                
+                if (chatInput) {
+                    chatInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            this.sendMessage();
+                        }
+                    });
+                }
+                
+                if (sendBtn) {
+                    sendBtn.addEventListener('click', () => this.sendMessage());
+                }
+                
+                if (analyzeBtn) {
+                    analyzeBtn.addEventListener('click', () => this.analyzeAllTasks());
+                }
+            }
+            
+            sendMessage() {
+                const input = document.getElementById('chatInput');
+                const message = input.value.trim();
+                
+                if (!message || this.isProcessing) return;
+                
+                this.isProcessing = true;
+                performanceController.preventDoubleClick(document.getElementById('sendChatBtn'));
+                
+                this.addMessageToChat(message, 'user');
+                input.value = '';
+                
+                this.processMessage(message);
+            }
+            
+            async processMessage(message) {
+                try {
+                    this.addLoadingMessage();
+                    
+                    // Simular processamento de IA (em produção, usar API real)
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const response = this.generateAIResponse(message);
+                    
+                    this.removeLoadingMessage();
+                    this.addMessageToChat(response, 'ai');
+                    
+                    auditSystem.logEvent(`Mensagem processada: ${message.substring(0, 50)}...`);
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.removeLoadingMessage();
+                    this.addMessageToChat('Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.', 'ai');
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+            
+            async analyzeAllTasks() {
+                if (this.isProcessing) return;
+                
+                this.isProcessing = true;
+                performanceController.preventDoubleClick(document.getElementById('analyzeBtn'));
+                
+                try {
+                    const totalTasks = Object.values(taskManager.tasks).flat().length;
+                    
+                    if (totalTasks === 0) {
+                        this.addMessageToChat('Adicione algumas tarefas na matriz antes de solicitar a análise.', 'ai');
+                        return;
+                    }
+                    
+                    this.addLoadingMessage();
+                    
+                    // Simular análise de IA (em produção, usar API real)
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    const analysis = this.generateTaskAnalysis();
+                    
+                    this.removeLoadingMessage();
+                    this.addMessageToChat(analysis, 'ai');
+                    this.updatePriorityList();
+                    
+                    auditSystem.logEvent(`Análise de ${totalTasks} tarefas concluída`);
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.removeLoadingMessage();
+                    this.addMessageToChat('Erro ao analisar tarefas. Tente novamente.', 'ai');
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+            
+            generateAIResponse(message) {
+                const responses = [
+                    'Entendo sua pergunta. Para uma gestão eficaz de tarefas, recomendo focar primeiro no quadrante 1 (Urgente + Importante).',
+                    'Baseado na metodologia Eisenhower, sugiro dedicar mais tempo ao quadrante 2 (Importante + Não Urgente) para prevenir crises.',
+                    'Lembre-se: as tarefas do quadrante 3 (Urgente + Não Importante) podem ser delegadas, enquanto o quadrante 4 deve ser minimizado.',
+                    'Uma boa estratégia é bloquear tempo específico para cada quadrante em sua agenda diária.'
+                ];
+                
+                return responses[Math.floor(Math.random() * responses.length)];
+            }
+            
+            generateTaskAnalysis() {
+                const tasks = taskManager.tasks;
+                const q1Count = tasks[1].length;
+                const q2Count = tasks[2].length;
+                const q3Count = tasks[3].length;
+                const q4Count = tasks[4].length;
+                
+                let analysis = '📊 **Análise da sua Matriz de Eisenhower:**\n\n';
+                
+                analysis += `• Quadrante 1 (Urgente + Importante): ${q1Count} tarefas\n`;
+                analysis += `• Quadrante 2 (Importante + Não Urgente): ${q2Count} tarefas\n`;
+                analysis += `• Quadrante 3 (Urgente + Não Importante): ${q3Count} tarefas\n`;
+                analysis += `• Quadrante 4 (Não Urgente + Não Importante): ${q4Count} tarefas\n\n`;
+                
+                analysis += '🎯 **Recomendações:**\n';
+                
+                if (q1Count > 3) {
+                    analysis += '• Você tem muitas tarefas urgentes. Considere delegar ou redistribuir.\n';
+                }
+                
+                if (q2Count < 2) {
+                    analysis += '• Invista mais tempo em atividades importantes mas não urgentes para prevenção.\n';
+                }
+                
+                if (q3Count > 2) {
+                    analysis += '• Algumas tarefas urgentes podem ser delegadas a outros.\n';
+                }
+                
+                if (q4Count > 1) {
+                    analysis += '• Considere eliminar ou reduzir atividades do quadrante 4.\n';
+                }
+                
+                return analysis;
+            }
+            
+            updatePriorityList() {
+                const priorityContainer = document.getElementById('priorityList');
+                priorityContainer.innerHTML = '';
+                
+                const allTasks = [];
+                Object.keys(taskManager.tasks).forEach(quadrant => {
+                    taskManager.tasks[quadrant].forEach(task => {
+                        allTasks.push({...task, priority: parseInt(quadrant)});
+                    });
+                });
+                
+                // Ordenar por prioridade
+                allTasks.sort((a, b) => a.priority - b.priority);
+                
+                allTasks.forEach((task, index) => {
+                    const priority = index + 1;
+                    const timeSlot = this.generateTimeSlot(priority);
+                    
+                    const taskElement = document.createElement('div');
+                    taskElement.className = 'bg-white border rounded-lg p-4 flex justify-between items-center';
+                    taskElement.innerHTML = `
+                        <div>
+                            <div class="font-medium text-lg">${priority}. ${task.text}</div>
+                            <div class="text-sm text-gray-600">
+                                Quadrante ${task.priority} • Sugestão: ${timeSlot}
+                            </div>
+                        </div>
+                        <div class="text-2xl">
+                            ${this.getPriorityIcon(task.priority)}
+                        </div>
+                    `;
+                    
+                    priorityContainer.appendChild(taskElement);
+                });
+            }
+            
+            generateTimeSlot(priority) {
+                const slots = [
+                    '08:00-09:00',
+                    '09:00-10:00',
+                    '10:00-11:00',
+                    '14:00-15:00',
+                    '15:00-16:00',
+                    '16:00-17:00'
+                ];
+                
+                return slots[priority - 1] || 'Horário flexível';
+            }
+            
+            getPriorityIcon(quadrant) {
+                const icons = {
+                    1: '🔥',
+                    2: '⭐',
+                    3: '⚡',
+                    4: '🌿'
+                };
+                
+                return icons[quadrant] || '📝';
+            }
+            
+            addMessageToChat(message, sender) {
+                const chatContainer = document.getElementById('chatContainer');
+                const messageElement = document.createElement('div');
+                messageElement.className = `chat-message ${sender}`;
+                
+                if (sender === 'ai') {
+                    messageElement.innerHTML = `<i class="fas fa-robot mr-2"></i>${message}`;
+                } else {
+                    messageElement.innerHTML = `<i class="fas fa-user mr-2"></i>${message}`;
+                }
+                
+                chatContainer.appendChild(messageElement);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            addLoadingMessage() {
+                const chatContainer = document.getElementById('chatContainer');
+                const loadingElement = document.createElement('div');
+                loadingElement.className = 'chat-message ai';
+                loadingElement.id = 'loadingMessage';
+                loadingElement.innerHTML = `
+                    <i class="fas fa-robot mr-2"></i>
+                    <span class="loading-spinner"></span> Processando...
+                `;
+                
+                chatContainer.appendChild(loadingElement);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            removeLoadingMessage() {
+                const loadingMessage = document.getElementById('loadingMessage');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+            }
+        }
+        
+        // ========================================
+        // SISTEMA DE AUTENTICAÇÃO
+        // ========================================
+        
+        class AuthManager {
+            constructor() {
+                this.isAuthenticated = false;
+                this.currentUser = null;
+                this.initializeEventListeners();
+                this.checkAuthStatus();
+            }
+            
+            initializeEventListeners() {
+                const loginTab = document.getElementById('loginTab');
+                const registerTab = document.getElementById('registerTab');
+                const loginBtn = document.getElementById('loginBtn');
+                const registerBtn = document.getElementById('registerBtn');
+                const logoutBtn = document.getElementById('logoutBtn');
+                
+                if (loginTab) {
+                    loginTab.addEventListener('click', () => this.showLoginForm());
+                }
+                
+                if (registerTab) {
+                    registerTab.addEventListener('click', () => this.showRegisterForm());
+                }
+                
+                if (loginBtn) {
+                    loginBtn.addEventListener('click', () => this.login());
+                }
+                
+                if (registerBtn) {
+                    registerBtn.addEventListener('click', () => this.register());
+                }
+                
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => this.logout());
+                }
+            }
+            
+            showLoginForm() {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginTab').className = 'w-1/2 py-2 px-4 bg-blue-500 text-white rounded-l-lg';
+                document.getElementById('registerTab').className = 'w-1/2 py-2 px-4 bg-gray-300 text-gray-700 rounded-r-lg';
+            }
+            
+            showRegisterForm() {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'block';
+                document.getElementById('loginTab').className = 'w-1/2 py-2 px-4 bg-gray-300 text-gray-700 rounded-l-lg';
+                document.getElementById('registerTab').className = 'w-1/2 py-2 px-4 bg-blue-500 text-white rounded-r-lg';
+            }
+            
+            async login() {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                if (!this.validateEmail(email) || !password) {
+                    this.showError('Por favor, preencha todos os campos corretamente.');
+                    return;
+                }
+                
+                performanceController.preventDoubleClick(document.getElementById('loginBtn'));
+                
+                try {
+                    // Simular login (em produção, usar API real)
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    this.currentUser = {
+                        email: email,
+                        name: email.split('@')[0],
+                        loginTime: new Date().toISOString()
+                    };
+                    
+                    this.isAuthenticated = true;
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    
+                    this.showApp();
+                    auditSystem.logEvent(`Login realizado: ${email}`);
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.showError('Erro ao fazer login. Tente novamente.');
+                }
+            }
+            
+            async register() {
+                const name = document.getElementById('registerName').value;
+                const email = document.getElementById('registerEmail').value;
+                const password = document.getElementById('registerPassword').value;
+                
+                if (!name || !this.validateEmail(email) || !password) {
+                    this.showError('Por favor, preencha todos os campos corretamente.');
+                    return;
+                }
+                
+                performanceController.preventDoubleClick(document.getElementById('registerBtn'));
+                
+                try {
+                    // Simular registro (em produção, usar API real)
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    this.currentUser = {
+                        name: name,
+                        email: email,
+                        registerTime: new Date().toISOString()
+                    };
+                    
+                    this.isAuthenticated = true;
+                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                    
+                    this.showApp();
+                    auditSystem.logEvent(`Registro realizado: ${email}`);
+                    
+                } catch (error) {
+                    auditSystem.trackError(error);
+                    this.showError('Erro ao fazer registro. Tente novamente.');
+                }
+            }
+            
+            logout() {
+                this.isAuthenticated = false;
+                this.currentUser = null;
+                localStorage.removeItem('currentUser');
+                
+                this.showAuth();
+                auditSystem.logEvent('Logout realizado');
+            }
+            
+            checkAuthStatus() {
+                const savedUser = localStorage.getItem('currentUser');
+                if (savedUser) {
+                    this.currentUser = JSON.parse(savedUser);
+                    this.isAuthenticated = true;
+                    this.showApp();
+                } else {
+                    this.showAuth();
+                }
+            }
+            
+            showApp() {
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('appSection').style.display = 'block';
+            }
+            
+            showAuth() {
+                document.getElementById('authSection').style.display = 'block';
+                document.getElementById('appSection').style.display = 'none';
+            }
+            
+            validateEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(email);
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                
+                const authSection = document.getElementById('authSection');
+                authSection.insertBefore(errorDiv, authSection.firstChild);
+                
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 5000);
+            }
+        }
+        
+        // ========================================
+        // INICIALIZAÇÃO DO SISTEMA
+        // ========================================
+        
+        let auditSystem;
+        let performanceController;
+        let taskManager;
+        let chatManager;
+        let authManager;
+        
+        // Inicializar sistema quando DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                auditSystem = new AuditSystem();
+                auditSystem.logEvent('DOM carregado');
+                
+                performanceController = new PerformanceController();
+                auditSystem.logEvent('Performance controller inicializado');
+                
+                authManager = new AuthManager();
+                auditSystem.logEvent('Auth manager inicializado');
+                
+                taskManager = new TaskManager();
+                auditSystem.logEvent('Task manager inicializado');
+                
+                chatManager = new ChatManager();
+                auditSystem.logEvent('Chat manager inicializado');
+                
+                auditSystem.logEvent('Sistema Eisenhower Matrix totalmente inicializado');
+                
+            } catch (error) {
+                console.error('Erro na inicialização:', error);
+                if (auditSystem) {
+                    auditSystem.trackError(error);
+                }
+            }
+        });
+        
+        // Cleanup global ao fechar página
+        window.addEventListener('beforeunload', () => {
+            if (auditSystem) {
+                auditSystem.logEvent('Aplicação sendo encerrada');
+            }
+        });
+        
+        // Error handler global
+        window.addEventListener('error', (e) => {
+            if (auditSystem) {
+                auditSystem.trackError(e.error || new Error(e.message));
+            }
+        });
+        
+        // Promise rejection handler
+        window.addEventListener('unhandledrejection', (e) => {
+            if (auditSystem) {
+                auditSystem.trackError(e.reason);
+            }
+        });
+        
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"959a8cfced9c00de","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.6.2","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
+</body>
+</html>
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDutSSPuTL%2FN4DjhaBLARhweGjvseIkvTPYjvaka1a2RqiYMsCiReyxhtLRBzxOeTRcF%2FUlYrApdINyoWOacuEshAn%2BSsAyGOtTLSHeEHpXHvf3IVN0qscLdHxY3wMr6Q94FKihTJhgcjuMti%2F7zmD5CAGcV7Fda7Pfp0G43GAoex%2B1DHdOMe2%2Fqok1oQFavuAXbJOfDrX66OgSOtvD%2BH9slEAetX%2Fe8uQYDsOXw66dBpIXK6l3TOHnMlHVU%2BfBkUFdhJx0%2BqrvlwaaKCbSQy1OokY4IpWlWMRoGUcCs8a0xKWO1Z793gc9groyOWSFRvSBIX6ciVzfptlfWj069bGM607qNEa1yrltVHNxbLZkSkQKCP9vWDMjnzllVr%2FriLzc%2BB407VM6TnmKO2xDiu0tumaCValyv05rAaurUnEbESjqs5ArJsgAQNjZWMMbnz84brTkgIxd%2Bp%2BDnBY%2BPjs4YwncLyPdMU7aDy8e9V2rPQ4hIWGgclMgXmRMpU1xubvVsTKq5Lm1IWatxiDdMolLo%3D";
+        window.__genspark_locale = "pt-BR";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDutSSPuTL/N4DjhaBLARhweGjvseIkvTPYjvaka1a2RqiYMsCiReyxhtLRBzxOeTRcF/UlYrApdINyoWOacuEshAn+SsAyGOtTLSHeEHpXHvf3IVN0qscLdHxY3wMr6Q94FKihTJhgcjuMti/7zmD5CAGcV7Fda7Pfp0G43GAoex+1DHdOMe2/qok1oQFavuAXbJOfDrX66OgSOtvD+H9slEAetX/e8uQYDsOXw66dBpIXK6l3TOHnMlHVU+fBkUFdhJx0+qrvlwaaKCbSQy1OokY4IpWlWMRoGUcCs8a0xKWO1Z793gc9groyOWSFRvSBIX6ciVzfptlfWj069bGM607qNEa1yrltVHNxbLZkSkQKCP9vWDMjnzllVr/riLzc+B407VM6TnmKO2xDiu0tumaCValyv05rAaurUnEbESjqs5ArJsgAQNjZWMMbnz84brTkgIxd+p+DnBY+Pjs4YwncLyPdMU7aDy8e9V2rPQ4hIWGgclMgXmRMpU1xubvVsTKq5Lm1IWatxiDdMolLo=";
+    </script>
+    
+    <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
+    
